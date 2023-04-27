@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "pkg app.js",
-    "start": "node app.js"
+    "start": "node --max-old-space-size=2048 app.js"
   },
   "keywords": [],
   "author": "",
