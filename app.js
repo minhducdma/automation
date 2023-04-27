@@ -87,6 +87,7 @@ async function processPages(page) {
         console.log(process.env.SUCCESS_MES);
         console.log("Đang gửi tin nhắn tới những người liên quan");
         await sendMessage(process.env.SUCCESS_MES);
+        await run()
         console.log("Đã gửi tin nhắn thành công");
       }
 
