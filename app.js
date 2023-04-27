@@ -9,13 +9,10 @@ const TelegramBot = require("node-telegram-bot-api");
 
 async function run() {
   const browser = await puppeteer.launch({
-    headless: true,
+    headless: "new",
   });
   const page = await browser.newPage();
   await page.setDefaultTimeout(Number(process.env.TIMEOUT) * 1000);
-
-  console.log("Ứng dụng đã bắt đầu chạy");
-
   try {
     await login(page);
     await clickContinueButton(page);
@@ -33,7 +30,6 @@ async function login(page) {
   await page.type("#username", process.env.USERNAME);
   await page.type("#password", process.env.PASSWORD);
   await page.keyboard.press("Enter");
-  console.log("Đã đăng nhập thành công");
   await page.waitForNavigation();
 }
 
@@ -47,57 +43,55 @@ async function editForm(page) {
   const editButtonSelector = 'button[name="defaultActionPanel_0_1"]';
   const editButton = await page.$(editButtonSelector);
   if (!editButton) {
-    console.log("Không có đơn nào đang nộp");
     return;
   }
   await editButton.click();
-  console.log("Đã truy cập vào trang sửa đơn");
   await page.waitForNavigation();
 }
 
 async function sendMessage(message) {
+  const now = new Date();
+  const timeString = now.toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
   await Promise.all(
     accounts.map(async (acc) => {
       try {
         const token = acc.token;
         const bot = new TelegramBot(token, { polling: true });
         await bot.sendMessage(acc.id, message);
-      } catch(e) {
-        console.log(e)
-        console.log("Lỗi gửi tin đến " + acc.id);
+      } catch {
+        sendMessage(message);
       }
     })
   );
+  console.log(`'${timeString}: Tin đã gửi: ${message}'`);
 }
 
 async function processPages(page) {
   try {
     const maxPage = 5;
-    for (let i = 0; i < maxPage; i++) {
-      if (i < 5) {
-        const errorSection = await page.$("section.wc-messagebox-type-error");
-        if (errorSection) {
-          console.log(process.env.FAIL_MES);
-          console.log("Đang gửi tin nhắn tới những người liên quan");
-          await sendMessage(process.env.FAIL_MES);
-          console.log("Đã gửi tin nhắn thành công");
-          break;
-        }
-      } else {
-        console.log(process.env.SUCCESS_MES);
-        console.log("Đang gửi tin nhắn tới những người liên quan");
-        await sendMessage(process.env.SUCCESS_MES);
-        await run()
-        console.log("Đã gửi tin nhắn thành công");
-      }
+    let i = 0;
+    let errorSection;
+    while (i < maxPage) {
+      // errorSection = await page.$("section.wc-messagebox-type-error");
+      // if (errorSection) {
+      //   await sendMessage(process.env.FAIL_MES);
+      //   break;
+      // }
 
       await page.waitForSelector('button[title="Go to next page"]');
       const nextButton = await page.$('button[title="Go to next page"]');
       await Promise.all([nextButton.click(), page.waitForNavigation()]);
-      console.log(`Đã chuyển đến trang ${i + 1}`);
+      i++;
+    }
+
+    if (!errorSection) {
+      await sendMessage(process.env.SUCCESS_MES);
+      await processPages(page);
     }
   } catch (e) {
-    console.log("Đã phát hiện lỗi " + e);
+    processPages(page)
   }
 }
-
