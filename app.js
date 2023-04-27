@@ -18,7 +18,9 @@ async function run() {
     await clickContinueButton(page);
     await editForm(page);
     await processPages(page);
+    await browser.close();
   } catch (e) {
+    await browser.close();
     await run();
   } finally {
     setInterval(run, Number(process.env.TIME_INTERVAL) * 60 * 1000);
@@ -55,17 +57,15 @@ async function sendMessage(message) {
     hour: "2-digit",
     minute: "2-digit",
   });
-  await Promise.all(
-    accounts.map(async (acc) => {
-      try {
-        const token = acc.token;
-        const bot = new TelegramBot(token, { polling: true });
-        await bot.sendMessage(acc.id, message);
-      } catch {
-        sendMessage(message);
-      }
-    })
-  );
+  await accounts.map(async (acc) => {
+    try {
+      const token = acc.token;
+      const bot = new TelegramBot(token, { polling: false });
+      await bot.sendMessage(acc.id, message);
+    } catch {
+      sendMessage(message);
+    }
+  })
   console.log(`'${timeString}: Tin đã gửi: ${message}'`);
 }
 
@@ -75,11 +75,11 @@ async function processPages(page) {
     let i = 0;
     let errorSection;
     while (i < maxPage) {
-      // errorSection = await page.$("section.wc-messagebox-type-error");
-      // if (errorSection) {
-      //   await sendMessage(process.env.FAIL_MES);
-      //   break;
-      // }
+      errorSection = await page.$("section.wc-messagebox-type-error");
+      if (errorSection) {
+        await sendMessage(process.env.FAIL_MES);
+        break;
+      }
 
       await page.waitForSelector('button[title="Go to next page"]');
       const nextButton = await page.$('button[title="Go to next page"]');
@@ -92,6 +92,6 @@ async function processPages(page) {
       await processPages(page);
     }
   } catch (e) {
-    processPages(page)
+    processPages(page);
   }
 }
